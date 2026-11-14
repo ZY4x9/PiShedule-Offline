@@ -1,0 +1,43 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.pischedule.app'
+    compileSdk 34
+    buildToolsVersion '34.0.0'
+
+    defaultConfig {
+        applicationId 'com.pischedule.offline'
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName 'v0.1F-Beta'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    buildFeatures {
+        buildConfig true
+    }
+    sourceSets {
+        main.assets.srcDir(layout.buildDirectory.dir('generated/webAssets'))
+    }
+}
+
+// The browser preview and Android APK share the same web source files.
+tasks.register('prepareWebAssets', Sync) {
+    from(rootProject.projectDir) {
+        include 'index.html'
+        include 'web/**'
+    }
+    into layout.buildDirectory.dir('generated/webAssets')
+}
+tasks.named('preBuild').configure {
+    dependsOn 'prepareWebAssets'
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.10.0'
+}
