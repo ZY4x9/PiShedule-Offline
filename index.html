@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PiSchedule 离线版</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'">
+<link rel="stylesheet" href="web/styles.css">
+<header><span><img class="mark" src="web/pi-icon.png" alt="" width="32" height="32">PiSchedule</span></header>
+<main id="screen"></main>
+<template id="about-page">
+  <h1>关于</h1>
+  <details class="card about-section" open>
+    <summary>更换背景</summary>
+    <p>选取本地图片后，界面会自动采用图片的主色。背景与配色会随应用保存在本机。</p>
+    <div class="row-actions">
+      <button id="choose-background" class="action">选择图片</button>
+      <button id="reset-background" class="secondary">恢复默认背景</button>
+    </div>
+  </details>
+  <details class="card about-section">
+    <summary>版本说明</summary>
+    <p><strong>PiSchedule 离线版 · v0.1F-Beta</strong></p>
+    <p>日程、课程和背景设置由 Android 本地 SQLite 保存。升级后首次打开会读取旧版日程和课表，导入、统计和提醒均可离线使用。</p>
+  </details>
+  <details class="card about-section">
+    <summary>使用说明</summary>
+    <dl class="guide">
+      <dt>日程与课表</dt>
+      <dd>在「日程」选择日期、新建或修改个人安排。编辑已有个人日程时，可以点「删除日程」并确认。课程和个人安排会出现在同一天的日程列表与周课表里。切换到课表会定位到所选日期所在周，点击课表顶部的日期可查看当天日程。修改时间会同步到两页。</dd>
+      <dt>导入 Excel 课表</dt>
+      <dd>在「课表」点「导入 Excel」，选择 .xls 或 .xlsx 文件及工作表，预览后确认。学校的学生个人课表按星期、节次和教学周自动识别，需填写第 1 教学周的周一日期。普通明细表每行填写一节每周重复的课，列为课程名、星期、开始时间、结束时间和教室。教室可留空，完全重复的课程会跳过。</dd>
+      <dt>完成状态与周总结</dt>
+      <dd>个人日程可「标记完成」，再次点击可撤销。周总结可切换周次，查看已完成、待完成、逾期、每日进度和时长。完成率为已完成的个人日程除以当周个人日程总数。课程单独统计节数和时长。</dd>
+      <dt>提前 30 分钟提醒</dt>
+      <dd>在日程页点「设置提醒权限」，开启通知和「闹钟和提醒」。已完成的个人日程会取消尚未发送的提醒。距离开始不足 30 分钟时，应用会尽快提醒。可在日程页发送测试通知。未开启精确闹钟权限时，通知可能延迟。</dd>
+      <dt>玻璃效果与配色</dt>
+      <dd>卡片、课表及弹窗采用磨砂玻璃效果。从「更换背景」选择图片后，按钮和选中状态会跟随图片主色。恢复默认背景也会恢复默认配色。</dd>
+    </dl>
+  </details>
+</template>
+<aside id="reminder-settings" hidden><span id="reminder-status" role="status"></span><button id="enable-reminders" class="secondary">设置提醒权限</button><button id="test-reminder" class="secondary" hidden>发送测试通知</button></aside>
+<footer><nav aria-label="主导航"><button data-page="today">日程</button><button data-page="week">课表</button><button data-page="summary">周总结</button><button data-page="about">关于</button></nav></footer>
+<dialog id="schedule" aria-labelledby="schedule-title">
+  <form id="form">
+    <h2 id="schedule-title">编辑日程</h2>
+    <label>名称<input name="name" maxlength="200" required></label>
+    <label id="date-field">日期<input name="date" type="date" required></label>
+    <label id="day-field" hidden>星期<select name="day"><option value="0">周一</option><option value="1">周二</option><option value="2">周三</option><option value="3">周四</option><option value="4">周五</option><option value="5">周六</option><option value="6">周日</option></select></label>
+    <div class="form-times">
+      <fieldset><legend>开始时间</legend><div class="time-parts"><select name="timeHour" aria-label="开始小时"></select><select name="timeMinute" aria-label="开始分钟"></select></div></fieldset>
+      <fieldset><legend>结束时间</legend><div class="time-parts"><select name="endHour" aria-label="结束小时"></select><select name="endMinute" aria-label="结束分钟"></select></div></fieldset>
+    </div>
+    <label>地点或备注<input name="room" maxlength="200"></label>
+    <p id="edit-error" class="error" role="alert"></p>
+    <button class="action">保存</button> <button id="cancel" class="secondary" type="button">取消</button> <button id="delete-item" class="secondary danger" type="button" hidden>删除日程</button>
+  </form>
+</dialog>
+<dialog id="delete-dialog" aria-labelledby="delete-title">
+  <h2 id="delete-title">删除日程</h2>
+  <p id="delete-description"></p>
+  <p id="delete-error" class="error" role="alert"></p>
+  <button id="keep-item" class="secondary" autofocus>取消</button>
+  <button id="confirm-delete" class="action danger-action">确认删除</button>
+</dialog>
+<dialog id="import-dialog" aria-labelledby="import-title">
+  <h2 id="import-title">导入 Excel 课表</h2>
+  <p class="muted">支持学校导出的学生个人课表。网格式课表需填写第 1 教学周的周一日期。普通明细表可使用以下表头。</p>
+  <p class="import-format">课程名 / 星期 / 开始时间 / 结束时间 / 教室</p>
+  <p class="muted">示例：高等数学 / 周一 / 09:00 / 10:30 / 致远楼 204</p>
+  <label>选择 .xls 或 .xlsx 文件（最大 10 MB）<input id="excel-file" type="file" accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label>
+  <label id="sheet-field" hidden>工作表<select id="sheet-select"></select></label>
+  <label id="term-field" hidden>第 1 教学周的周一日期<input id="term-start" type="date"></label>
+  <div id="import-preview" aria-live="polite"></div>
+  <p id="import-error" class="error" role="alert"></p>
+  <button id="confirm-import" class="action" disabled>追加到课表</button>
+  <button id="cancel-import" class="secondary">取消</button>
+</dialog>
+<p id="app-message" role="status"></p>
+<script src="web/vendor/xlsx.full.min.js"></script>
+<script src="web/store.js"></script>
+<script src="web/import.js"></script>
+<input id="background-file" type="file" accept="image/*" hidden>
+<script src="web/app.js"></script>
+<script src="web/background.js"></script>
+</html>
